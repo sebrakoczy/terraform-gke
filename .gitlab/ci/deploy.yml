@@ -1,0 +1,24 @@
+.deploy: &deploy
+  image: alpine/helm:latest
+  script:
+    # KUBE_CONTEXT is provided by the GitLab Agent for Kubernetes connection.
+    - helm upgrade --install reference-app chart/
+        --kube-context "$KUBE_CONTEXT"
+        --namespace "$NAMESPACE" --create-namespace
+        --set image.repository="$IMAGE" --set image.tag="$TAG"
+        --set otel.endpoint="$OTEL_ENDPOINT"
+        --wait --atomic --timeout 5m   # atomic = auto-rollback on failed deploy
+
+deploy-staging:
+  stage: deploy-staging
+  <<: *deploy
+  variables: { NAMESPACE: staging, KUBE_CONTEXT: "$CI_PROJECT_PATH:platform-agent" }
+  environment: { name: staging, url: https://staging.example.com }
+  rules: [{ if: '$CI_COMMIT_BRANCH == "main"' }]
+
+deploy-prod:
+  stage: deploy-prod
+  <<: *deploy
+  variables: { NAMESPACE: production, KUBE_CONTEXT: "$CI_PROJECT_PATH:platform-agent" }
+  environment: { name: production, url: https://example.com }
+  rules: [{ if: '$CI_COMMIT_BRANCH == "main"', when: manual }]   # promotion gate

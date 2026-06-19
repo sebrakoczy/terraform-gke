@@ -1,0 +1,37 @@
+# =============================================================================
+# Reference platform pipeline.  Maps directly to the JD:
+#   - reusable pipeline templates  -> local includes under .gitlab/ci/
+#   - automated build/test/deploy  -> stages below
+#   - embedded security scanning   -> GitLab AST templates + OSS fallback jobs
+#   - GitOps deploy to Kubernetes  -> deploy via the GitLab Agent (helm)
+#   - environments + promotion     -> staging (auto) / production (manual gate)
+# =============================================================================
+
+stages: [validate, test, build, sbom, security, package, deploy-staging, deploy-prod]
+
+variables:
+  IMAGE: $CI_REGISTRY_IMAGE/reference-app
+  TAG: $CI_COMMIT_SHORT_SHA
+  # Recommended modern setting: run security scans in MR pipelines (GitLab >= 18.0)
+  AST_ENABLE_MR_PIPELINES: "true"
+
+include:
+  # ---- reusable local templates (demonstrates "reusable pipeline templates") ----
+  - local: .gitlab/ci/validate.yml
+  - local: .gitlab/ci/build.yml
+  - local: .gitlab/ci/security.yml
+  - local: .gitlab/ci/deploy.yml
+  # ---- official GitLab security scanners (Ultimate for the full set) ----
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+  - template: Jobs/Dependency-Scanning.v2.gitlab-ci.yml
+  - template: Jobs/Container-Scanning.gitlab-ci.yml
+
+# Pin the official scanners to the right stage (they default to `test`).
+sast:               { stage: security }
+secret_detection:   { stage: security }
+dependency_scanning:{ stage: security }
+container_scanning:
+  stage: security
+  variables:
+    CS_IMAGE: $IMAGE:$TAG

@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "reference-app.name" . }}
+  labels: {{- include "reference-app.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "reference-app.name" . }}
+  template:
+    metadata:
+      labels: {{- include "reference-app.labels" . | nindent 8 }}
+    spec:
+      # --- pod-level hardening ---
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      topologySpreadConstraints:        # HA: don't pile all replicas on one node
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "reference-app.name" . }}
+      containers:
+        - name: app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports: [{ containerPort: 8080 }]
+          env:
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "{{ .Values.otel.endpoint }}" }
+            - { name: OTEL_SERVICE_NAME, value: "{{ .Values.otel.serviceName }}" }
+          # --- container-level hardening ---
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8080 }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+          resources: {{- toYaml .Values.resources | nindent 12 }}

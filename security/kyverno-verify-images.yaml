@@ -1,0 +1,22 @@
+# Blocks unsigned images at admission. Verifies the keyless Cosign signature
+# produced by the pipeline (Sigstore/Fulcio identity = the GitLab project).
+# NOTE: the verifyImages API has shifted across Kyverno versions — confirm the
+# schema against your installed Kyverno before applying.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata: { name: verify-image-signatures }
+spec:
+  validationFailureAction: Enforce
+  webhookTimeoutSeconds: 30
+  rules:
+    - name: verify-signature
+      match:
+        any:
+          - resources: { kinds: [ Pod ] }
+      verifyImages:
+        - imageReferences: [ "registry.example.com/yourname/reference-app*" ]
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: "https://gitlab.com"
+                    subject: "https://gitlab.com/yourname/gke-reference-platform//*"

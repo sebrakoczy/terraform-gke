@@ -1,0 +1,24 @@
+go-lint:
+  stage: validate
+  image: golangci/golangci-lint:latest
+  script: [ "cd app", "golangci-lint run ./... || true" ]   # || true while warming up
+  rules: [{ if: '$CI_PIPELINE_SOURCE == "merge_request_event"' }, { if: '$CI_COMMIT_BRANCH == "main"' }]
+
+helm-lint:
+  stage: validate
+  image: alpine/helm:latest
+  script: [ "helm lint chart/" ]
+
+tf-validate:
+  stage: validate
+  image: hashicorp/terraform:latest
+  script: [ "cd terraform", "terraform fmt -check -recursive", "terraform init -backend=false", "terraform validate" ]
+  allow_failure: true   # Phase 2 — becomes blocking once GKE module lands
+
+go-test:
+  stage: test
+  image: golang:1.23
+  script: [ "cd app", "go test -race -coverprofile=cover.out ./..." ]
+  coverage: '/coverage: \d+.\d+% of statements/'
+  artifacts:
+    paths: [ app/cover.out ]

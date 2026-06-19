@@ -1,0 +1,18 @@
+image:
+  repository: registry.example.com/yourname/reference-app
+  tag: "latest"        # overridden by CI with the commit SHA
+  pullPolicy: IfNotPresent
+
+replicaCount: 2          # HA: spread across nodes via topology constraints below
+
+resources:
+  requests: { cpu: 50m, memory: 64Mi }
+  limits:   { cpu: 250m, memory: 128Mi }
+
+# OTLP endpoint differs per environment (Tempo on kubeadm, Cloud Trace on GKE).
+otel:
+  endpoint: ""           # e.g. http://tempo.observability:4318
+  serviceName: reference-app
+
+serviceMonitor:
+  enabled: true          # scraped by Prometheus / Managed Service for Prometheus

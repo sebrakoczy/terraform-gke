@@ -1,0 +1,4 @@
+# Registers this repo's CI as authorized to deploy through the agent.
+ci_access:
+  projects:
+    - id: yourname/gke-reference-platform

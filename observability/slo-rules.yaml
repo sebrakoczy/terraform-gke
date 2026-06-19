@@ -1,0 +1,21 @@
+# Multi-window burn-rate alerting for a 99.9% availability SLO.
+# Runs on the kubeadm Prometheus today; the same intent maps to Managed
+# Service for Prometheus on GKE. Demonstrates SRE practice, not just dashboards.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: reference-app-slo
+  labels: { role: alert-rules }
+spec:
+  groups:
+    - name: reference-app.slo
+      rules:
+        - alert: HighErrorBudgetBurnFast
+          # 2% of requests failing over 5m AND 1h => burning budget ~14x
+          expr: |
+            (sum(rate(app_http_requests_total{status=~"5.."}[5m])) / sum(rate(app_http_requests_total[5m]))) > 0.02
+            and
+            (sum(rate(app_http_requests_total{status=~"5.."}[1h])) / sum(rate(app_http_requests_total[1h]))) > 0.02
+          for: 2m
+          labels: { severity: page }
+          annotations: { summary: "Fast error-budget burn on reference-app" }
