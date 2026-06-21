@@ -72,12 +72,10 @@ jobs:
           format: spdx-json
           output-file: sbom.spdx.json
       - name: Vulnerability scan (Trivy)
-        uses: aquasecurity/trivy-action@0.29.0
-        with:
-          image-ref: ${{ steps.push.outputs.digest }}
-          severity: CRITICAL
-          ignore-unfixed: true
-          exit-code: '0'        # report-only to start; flip to '1' to gate
+        run: |
+          docker run --rm aquasec/trivy:0.71.0 image \
+            --severity CRITICAL --ignore-unfixed --exit-code 0 \
+            "${{ steps.push.outputs.digest }}"
       - name: Cosign keyless sign
         run: cosign sign --yes "${{ steps.push.outputs.digest }}"
 
