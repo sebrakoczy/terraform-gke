@@ -73,9 +73,9 @@ jobs:
           output-file: sbom.spdx.json
       - name: Vulnerability scan (Trivy)
         run: |
-          docker run --rm aquasec/trivy:0.71.0 image \
-            --severity CRITICAL --ignore-unfixed --exit-code 0 \
-            "${{ steps.push.outputs.digest }}"
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/v0.71.0/contrib/install.sh | sh -s -- -b /usr/local/bin v0.71.0
+          IMG="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
+          trivy image --severity CRITICAL --ignore-unfixed --exit-code 0 "$IMG:${GITHUB_SHA}"
       - name: Cosign keyless sign
         run: cosign sign --yes "${{ steps.push.outputs.digest }}"
 
