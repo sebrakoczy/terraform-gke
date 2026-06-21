@@ -16,8 +16,6 @@ spec:
       # --- pod-level hardening ---
       securityContext:
         runAsNonRoot: true
-        runAsUser: 65532
-        runAsGroup: 65532
         seccompProfile: { type: RuntimeDefault }
       topologySpreadConstraints:        # HA: don't pile all replicas on one node
         - maxSkew: 1

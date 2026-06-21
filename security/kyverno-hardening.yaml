@@ -1,0 +1,55 @@
+# Enforces the full Pod Security "restricted" profile plus two common guardrails,
+# scoped to app namespaces so system components are never affected.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata: { name: restricted-pod-security }
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: restricted
+      match:
+        any:
+          - resources: { kinds: [Pod], namespaces: [production, staging] }
+      validate:
+        podSecurity:
+          level: restricted
+          version: latest
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata: { name: disallow-latest-tag }
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-image-tag
+      match:
+        any:
+          - resources: { kinds: [Pod], namespaces: [production, staging] }
+      validate:
+        message: "Images must use an immutable tag or digest, not :latest."
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata: { name: require-resources }
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-requests-limits
+      match:
+        any:
+          - resources: { kinds: [Pod], namespaces: [production, staging] }
+      validate:
+        message: "CPU/memory requests and limits are required."
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests: { memory: "?*", cpu: "?*" }
+                  limits: { memory: "?*" }

@@ -1,0 +1,17 @@
+# Managed Service for Prometheus is on by default for Autopilot. A PodMonitoring
+# tells managed collection what to scrape; metrics land in Cloud Monitoring under
+# prometheus.googleapis.com/ and are queryable with PromQL.
+# (On the kubeadm cluster you use the ServiceMonitor in the Helm chart instead.)
+apiVersion: monitoring.googleapis.com/v1
+kind: PodMonitoring
+metadata:
+  name: reference-app
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: reference-app
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s

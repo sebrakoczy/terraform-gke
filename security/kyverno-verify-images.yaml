@@ -1,22 +1,33 @@
-# Blocks unsigned images at admission. Verifies the keyless Cosign signature
-# produced by the pipeline (Sigstore/Fulcio identity = the GitLab project).
-# NOTE: the verifyImages API has shifted across Kyverno versions — confirm the
-# schema against your installed Kyverno before applying.
+# Blocks images that aren't keyless-signed by THIS GitLab project's pipeline.
+# imageReferences is scoped to your registry, so system/3rd-party images are
+# unaffected. Replace YOUR_GROUP with your GitLab group/namespace.
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
-metadata: { name: verify-image-signatures }
+metadata:
+  name: verify-image-signatures
+  annotations:
+    policies.kyverno.io/title: Verify Image Signatures
+    policies.kyverno.io/category: Supply Chain Security
 spec:
   validationFailureAction: Enforce
-  webhookTimeoutSeconds: 30
+  webhookTimeoutSeconds: 30      # image verification needs headroom
+  background: false              # image verification cannot run in background
+  failurePolicy: Fail
   rules:
-    - name: verify-signature
+    - name: verify-gitlab-keyless
       match:
         any:
-          - resources: { kinds: [ Pod ] }
+          - resources: { kinds: [Pod] }
+      exclude:
+        any:
+          - resources: { namespaces: [kube-system, kyverno, gmp-system, gke-managed-system, external-secrets] }
       verifyImages:
-        - imageReferences: [ "registry.example.com/yourname/reference-app*" ]
+        - imageReferences:
+            - "registry.gitlab.com/YOUR_GROUP/gke-reference-platform*"
           attestors:
             - entries:
                 - keyless:
-                    issuer: "https://gitlab.com"
-                    subject: "https://gitlab.com/yourname/gke-reference-platform//*"
+                    subjectRegExp: "https://gitlab\\.com/YOUR_GROUP/gke-reference-platform.*"
+                    issuerRegExp: "https://gitlab\\.com"
+                    rekor:
+                      url: https://rekor.sigstore.dev

@@ -1,0 +1,12 @@
+apiVersion: monitoring.googleapis.com/v1
+kind: Rules
+metadata:
+  name: reference-app-slo
+  namespace: production
+spec:
+  groups:
+    - name: slo
+      interval: 30s
+      rules:
+        - record: slo:request_error_ratio:rate5m
+          expr: sum(rate(app_http_requests_total{status=~"5.."}[5m])) / sum(rate(app_http_requests_total[5m]))

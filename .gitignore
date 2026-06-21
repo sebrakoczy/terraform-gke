@@ -1,0 +1,14 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+.terraform.lock.hcl
+
+# Helm / build
+*.bak
+chart/**/*.bak
+
+# OS
+.DS_Store
