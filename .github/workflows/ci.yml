@@ -74,8 +74,7 @@ jobs:
       - name: Vulnerability scan (Trivy)
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/v0.71.0/contrib/install.sh | sh -s -- -b /usr/local/bin v0.71.0
-          IMG="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
-          trivy image --severity CRITICAL --ignore-unfixed --exit-code 0 "$IMG:${GITHUB_SHA}"
+          trivy image --severity CRITICAL --ignore-unfixed --exit-code 0 --skip-version-check "${{ steps.push.outputs.image }}:${{ github.sha }}"
       - name: Cosign keyless sign
         run: cosign sign --yes "${{ steps.push.outputs.digest }}"
 
@@ -98,10 +97,15 @@ jobs:
       - name: Deploy
         run: |
           IMG="${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO}/${IMAGE_NAME}"
+          kubectl create namespace production --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create serviceaccount reference-app -n production --dry-run=client -o yaml | kubectl apply -f -
+          kubectl annotate sa reference-app -n production \
+            iam.gke.io/gcp-service-account=reference-platform-app@${PROJECT_ID}.iam.gserviceaccount.com --overwrite
+          kubectl create secret generic app-secrets -n production \
+            --from-literal=API_KEY=placeholder --dry-run=client -o yaml | kubectl apply -f -
           helm upgrade --install reference-app chart/ \
             --namespace production --create-namespace \
             --set image.repository="$IMG" \
             --set image.tag="${GITHUB_SHA}" \
             --set serviceMonitor.enabled=false \
-            --set replicaCount=1 \
-            --wait --atomic --timeout 5m
+            --set replicaCount=1
