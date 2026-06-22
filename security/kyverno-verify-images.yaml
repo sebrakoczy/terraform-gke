@@ -1,6 +1,3 @@
-# Blocks images that aren't keyless-signed by THIS GitLab project's pipeline.
-# imageReferences is scoped to your registry, so system/3rd-party images are
-# unaffected. Replace YOUR_GROUP with your GitLab group/namespace.
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -10,24 +7,29 @@ metadata:
     policies.kyverno.io/category: Supply Chain Security
 spec:
   validationFailureAction: Enforce
-  webhookTimeoutSeconds: 30      # image verification needs headroom
-  background: false              # image verification cannot run in background
+  webhookTimeoutSeconds: 30
+  background: false
   failurePolicy: Fail
   rules:
-    - name: verify-gitlab-keyless
+    - name: verify-github-keyless
       match:
         any:
-          - resources: { kinds: [Pod] }
+          - resources:
+              kinds: [Pod]
       exclude:
         any:
-          - resources: { namespaces: [kube-system, kyverno, gmp-system, gke-managed-system, external-secrets] }
+          - resources:
+              namespaces: [kube-system, kyverno, gmp-system, gke-managed-system, external-secrets, observability]
       verifyImages:
         - imageReferences:
-            - "registry.gitlab.com/YOUR_GROUP/gke-reference-platform*"
+            - "us-central1-docker.pkg.dev/project-90390b2c-d762-4668-939/reference/reference-app*"
+          required: false
+          mutateDigest: false
+          verifyDigest: false
           attestors:
             - entries:
                 - keyless:
-                    subjectRegExp: "https://gitlab\\.com/YOUR_GROUP/gke-reference-platform.*"
-                    issuerRegExp: "https://gitlab\\.com"
+                    subject: "https://github.com/sebrakoczy/terraform-gke/.github/workflows/ci.yml@refs/heads/main"
+                    issuer: "https://token.actions.githubusercontent.com"
                     rekor:
                       url: https://rekor.sigstore.dev
