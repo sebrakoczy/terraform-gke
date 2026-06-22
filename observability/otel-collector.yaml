@@ -8,8 +8,8 @@ metadata:
   name: otel-collector
   namespace: observability
   annotations:
-    # Bind to the Google SA created in terraform/observability.tf. Replace YOUR_PROJECT.
-    iam.gke.io/gcp-service-account: reference-platform-otel@YOUR_PROJECT.iam.gserviceaccount.com
+    # Bind to the Google SA created in terraform/observability.tf. Replace project-90390b2c-d762-4668-939.
+    iam.gke.io/gcp-service-account: reference-platform-otel@project-90390b2c-d762-4668-939.iam.gserviceaccount.com
 ---
 apiVersion: v1
 kind: ConfigMap

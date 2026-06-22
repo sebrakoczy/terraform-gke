@@ -19,21 +19,21 @@ resource "google_service_account_iam_member" "otel_wi" {
 # SLO alert policy is applied in PHASE 3, after the app metric exists in Cloud
 # Monitoring. Cloud Monitoring validates PromQL metrics at creation time, so this
 # must wait until Managed Prometheus has ingested app_http_requests_total once.
-# resource "google_monitoring_alert_policy" "slo_fast_burn" {
-#   display_name = "reference-app fast error-budget burn"
-#   combiner     = "OR"
-#   conditions {
-#     display_name = "5xx ratio > 2% over 5m and 1h"
-#     condition_prometheus_query_language {
-#       query               = "(sum(rate(app_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(app_http_requests_total[5m]))) > 0.02 and (sum(rate(app_http_requests_total{status=~\"5..\"}[1h])) / sum(rate(app_http_requests_total[1h]))) > 0.02"
-#       duration            = "120s"
-#       evaluation_interval = "60s"
-#     }
-#   }
-#   documentation {
-#     content = "Fast burn of the 99.9% availability SLO for reference-app."
-#   }
-# }
+resource "google_monitoring_alert_policy" "slo_fast_burn" {
+  display_name = "reference-app fast error-budget burn"
+  combiner     = "OR"
+  conditions {
+    display_name = "5xx ratio > 2% over 5m and 1h"
+    condition_prometheus_query_language {
+      query               = "(sum(rate(app_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(app_http_requests_total[5m]))) > 0.02 and (sum(rate(app_http_requests_total{status=~\"5..\"}[1h])) / sum(rate(app_http_requests_total[1h]))) > 0.02"
+      duration            = "120s"
+      evaluation_interval = "60s"
+    }
+  }
+  documentation {
+    content = "Fast burn of the 99.9% availability SLO for reference-app."
+  }
+}
 
 resource "google_monitoring_dashboard" "reference_app" {
   dashboard_json = jsonencode({
