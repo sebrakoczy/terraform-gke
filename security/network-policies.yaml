@@ -1,21 +1,52 @@
-# Default-deny ingress, then explicitly allow what the app needs.
+# Default-deny ingress in production, then allow only what's needed.
 # GKE Autopilot enforces NetworkPolicy by default (Dataplane V2).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: { name: default-deny-ingress, namespace: production }
+metadata:
+  name: default-deny-ingress
+  namespace: production
 spec:
   podSelector: {}
   policyTypes: [Ingress]
 ---
+# Allow Managed Service for Prometheus to scrape /metrics.
+# GMP's collector runs in gke-gmp-system / gmp-system; allow both by namespace.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: { name: allow-app-ingress, namespace: production }
+metadata:
+  name: allow-gmp-scrape
+  namespace: production
 spec:
   podSelector:
-    matchLabels: { app.kubernetes.io/name: reference-app }
+    matchLabels:
+      app.kubernetes.io/name: reference-app
   policyTypes: [Ingress]
   ingress:
     - from:
-        - podSelector: {}            # same namespace; add ingress-controller ns as needed
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: gke-gmp-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: gmp-system
       ports:
-        - { protocol: TCP, port: 8080 }
+        - protocol: TCP
+          port: 8080
+---
+# Allow same-namespace traffic (e.g., your own port-forward target / intra-ns calls).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: reference-app
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080
