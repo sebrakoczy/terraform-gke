@@ -35,7 +35,7 @@
         --set image.tag="$TAG" \
         --set serviceMonitor.enabled=false \
         --set replicaCount=1
-    - kubectl rollout status deploy/reference-app -n "$NAMESPACE" --timeout=240s
+    - kubectl rollout status deploy/reference-app -n "$NAMESPACE" --timeout=420s
 
 deploy-staging:
   stage: deploy-staging
