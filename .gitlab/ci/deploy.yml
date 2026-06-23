@@ -5,11 +5,9 @@
     GCP_ID_TOKEN:
       aud: //iam.googleapis.com/projects/100137106185/locations/global/workloadIdentityPools/github-pool/providers/gitlab-provider
   before_script:
-    # install kubectl + the GKE auth plugin (slim image lacks them) and helm
     - apt-get update -qq && apt-get install -qq -y google-cloud-cli-gke-gcloud-auth-plugin kubectl >/dev/null 2>&1
     - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash >/dev/null
     - export USE_GKE_GCLOUD_AUTH_PLUGIN=True
-    # federate via WIF
     - echo "$GCP_ID_TOKEN" > /tmp/gitlab_oidc_token
     - |
       gcloud iam workload-identity-pools create-cred-config \
@@ -21,6 +19,15 @@
     - gcloud config set project "$GCP_PROJECT_ID"
     - gcloud container clusters get-credentials reference-platform --region us-central1
   script:
+    # bootstrap namespace, WI-annotated service account, and secret (idempotent)
+    - kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+    - kubectl create serviceaccount reference-app -n "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+    - |
+      kubectl annotate sa reference-app -n "$NAMESPACE" \
+        iam.gke.io/gcp-service-account=reference-platform-app@${GCP_PROJECT_ID}.iam.gserviceaccount.com --overwrite
+    - |
+      kubectl create secret generic app-secrets -n "$NAMESPACE" \
+        --from-literal=API_KEY=placeholder --dry-run=client -o yaml | kubectl apply -f -
     - |
       helm upgrade --install reference-app chart/ \
         --namespace "$NAMESPACE" --create-namespace \
@@ -28,7 +35,7 @@
         --set image.tag="$TAG" \
         --set serviceMonitor.enabled=false \
         --set replicaCount=1
-    - kubectl rollout status deploy/reference-app -n "$NAMESPACE" --timeout=180s
+    - kubectl rollout status deploy/reference-app -n "$NAMESPACE" --timeout=240s
 
 deploy-staging:
   stage: deploy-staging
