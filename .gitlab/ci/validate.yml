@@ -1,24 +1,41 @@
 go-lint:
   stage: validate
-  image: golangci/golangci-lint:latest
-  script: [ "cd app", "golangci-lint run ./... || true" ]   # || true while warming up
-  rules: [{ if: '$CI_PIPELINE_SOURCE == "merge_request_event"' }, { if: '$CI_COMMIT_BRANCH == "main"' }]
+  image:
+    name: golangci/golangci-lint:latest
+    entrypoint: [""]
+  script:
+    - cd app
+    - golangci-lint run ./... || true   # informational while warming up
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
 
 helm-lint:
   stage: validate
-  image: alpine/helm:latest
-  script: [ "helm lint chart/" ]
+  image:
+    name: alpine/helm:latest
+    entrypoint: [""]
+  script:
+    - helm lint chart/
 
 tf-validate:
   stage: validate
-  image: hashicorp/terraform:latest
-  script: [ "cd terraform", "terraform fmt -check -recursive", "terraform init -backend=false", "terraform validate" ]
-  allow_failure: true   # Phase 2 — becomes blocking once GKE module lands
+  image:
+    name: hashicorp/terraform:latest
+    entrypoint: [""]
+  script:
+    - cd terraform
+    - terraform fmt -check -recursive || true
+    - terraform init -backend=false
+    - terraform validate
+  allow_failure: true   # informational; WIF/state not needed to validate syntax
 
 go-test:
   stage: test
   image: golang:1.23
-  script: [ "cd app", "go test -race -coverprofile=cover.out ./..." ]
+  script:
+    - cd app
+    - go test -race -coverprofile=cover.out ./...
   coverage: '/coverage: \d+.\d+% of statements/'
   artifacts:
     paths: [ app/cover.out ]
