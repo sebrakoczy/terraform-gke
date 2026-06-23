@@ -36,7 +36,6 @@ trivy-image:
   extends: .gcp-auth
   script:
     - curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-    # report all HIGH/CRITICAL, then gate on fixable CRITICALs
     - trivy image --exit-code 0 --severity HIGH,CRITICAL --format table "$IMAGE:$TAG"
     - trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed "$IMAGE:$TAG"
   rules:
