@@ -1,12 +1,15 @@
 # Deploy to GKE using keyless Workload Identity Federation (no stored keys).
-# GitLab issues an OIDC ID token; GCP federates it to the CI service account.
 .deploy:
   image: google/cloud-sdk:slim
   id_tokens:
     GCP_ID_TOKEN:
       aud: //iam.googleapis.com/projects/100137106185/locations/global/workloadIdentityPools/github-pool/providers/gitlab-provider
   before_script:
+    # install kubectl + the GKE auth plugin (slim image lacks them) and helm
+    - apt-get update -qq && apt-get install -qq -y google-cloud-cli-gke-gcloud-auth-plugin kubectl >/dev/null 2>&1
     - curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash >/dev/null
+    - export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+    # federate via WIF
     - echo "$GCP_ID_TOKEN" > /tmp/gitlab_oidc_token
     - |
       gcloud iam workload-identity-pools create-cred-config \
