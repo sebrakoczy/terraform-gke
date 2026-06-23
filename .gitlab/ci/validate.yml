@@ -35,6 +35,7 @@ go-test:
   image: golang:1.23
   script:
     - cd app
+    - go mod tidy
     - go test -race -coverprofile=cover.out ./...
   coverage: '/coverage: \d+.\d+% of statements/'
   artifacts:
