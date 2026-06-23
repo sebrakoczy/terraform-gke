@@ -12,3 +12,14 @@ chart/**/*.bak
 
 # OS
 .DS_Store
+vault-init.json
+vault-init.json
+
+# Terraform state (never commit)
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars.bak
+
+# editor / sed backups
+*.bak
