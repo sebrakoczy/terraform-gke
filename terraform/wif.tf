@@ -55,3 +55,41 @@ output "wif_provider" {
 output "ci_service_account" {
   value = google_service_account.ci.email
 }
+
+# ---------------------------------------------------------------------------
+# GitLab.com WIF provider (keyless GitLab CI -> GCP), on the same pool.
+# Demonstrates the same OIDC federation pattern as GitHub, different issuer.
+# ---------------------------------------------------------------------------
+locals {
+  gitlab_project_path = "sebrakoczy/terraform-gke"
+}
+
+resource "google_iam_workload_identity_pool_provider" "gitlab" {
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
+  workload_identity_pool_provider_id = "gitlab-provider"
+  display_name                       = "GitLab.com OIDC"
+
+  attribute_mapping = {
+    "google.subject"         = "assertion.sub"
+    "attribute.project_path" = "assertion.project_path"
+    "attribute.ref"          = "assertion.ref"
+  }
+
+  # Only this GitLab project may federate.
+  attribute_condition = "assertion.project_path == '${local.gitlab_project_path}'"
+
+  oidc {
+    issuer_uri = "https://gitlab.com"
+  }
+}
+
+# Let the GitLab project impersonate the CI service account.
+resource "google_service_account_iam_member" "gitlab_ci_wif" {
+  service_account_id = google_service_account.ci.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.project_path/${local.gitlab_project_path}"
+}
+
+output "gitlab_wif_provider" {
+  value = google_iam_workload_identity_pool_provider.gitlab.name
+}

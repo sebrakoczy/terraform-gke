@@ -1,15 +1,36 @@
+# Build the image with Kaniko (rootless, no Docker daemon) and push to
+# Google Artifact Registry, authenticating via Workload Identity Federation.
 build-image:
   stage: build
   image:
     name: gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
+  id_tokens:
+    GCP_ID_TOKEN:
+      aud: //iam.googleapis.com/projects/100137106185/locations/global/workloadIdentityPools/github-pool/providers/gitlab-provider
+  before_script:
+    # Exchange the GitLab OIDC token for GCP creds, then get an AR access token.
+    - echo "$GCP_ID_TOKEN" > /tmp/gitlab_oidc_token
+    - |
+      cat > /tmp/wif-cred.json <<JSON
+      {
+        "type": "external_account",
+        "audience": "//iam.googleapis.com/${GCP_WIF_PROVIDER}",
+        "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+        "token_url": "https://sts.googleapis.com/v1/token",
+        "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${GCP_SERVICE_ACCOUNT}:generateAccessToken",
+        "credential_source": { "file": "/tmp/gitlab_oidc_token" }
+      }
+      JSON
+    - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/wif-cred.json
+    # Kaniko reads GCP creds via GOOGLE_APPLICATION_CREDENTIALS for *.pkg.dev
   script:
-    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(printf '%s:%s' "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
-    - /kaniko/executor
-      --context "$CI_PROJECT_DIR/app"
-      --dockerfile "$CI_PROJECT_DIR/app/Dockerfile"
-      --destination "$IMAGE:$TAG"
-      --destination "$IMAGE:latest"
-      --digest-file=/kaniko/digest.txt
-  artifacts:
-    paths: [ ] # digest exported via dotenv below in a real setup
+    - |
+      /kaniko/executor \
+        --context "$CI_PROJECT_DIR/app" \
+        --dockerfile "$CI_PROJECT_DIR/app/Dockerfile" \
+        --destination "$IMAGE:$TAG" \
+        --destination "$IMAGE:latest" \
+        --digest-file=/kaniko/digest.txt
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'

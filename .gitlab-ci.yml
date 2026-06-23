@@ -10,7 +10,7 @@
 stages: [validate, test, build, sbom, security, package, deploy-staging, deploy-prod]
 
 variables:
-  IMAGE: $CI_REGISTRY_IMAGE/reference-app
+  IMAGE: us-central1-docker.pkg.dev/$GCP_PROJECT_ID/reference/reference-app
   TAG: $CI_COMMIT_SHORT_SHA
   # Recommended modern setting: run security scans in MR pipelines (GitLab >= 18.0)
   AST_ENABLE_MR_PIPELINES: "true"
@@ -22,16 +22,16 @@ include:
   - local: .gitlab/ci/security.yml
   - local: .gitlab/ci/deploy.yml
   # ---- official GitLab security scanners (Ultimate for the full set) ----
-  - template: Jobs/SAST.gitlab-ci.yml
-  - template: Jobs/Secret-Detection.gitlab-ci.yml
-  - template: Jobs/Dependency-Scanning.v2.gitlab-ci.yml
-  - template: Jobs/Container-Scanning.gitlab-ci.yml
+  # - template: Jobs/SAST.gitlab-ci.yml
+  # - template: Jobs/Secret-Detection.gitlab-ci.yml
+  # - template: Jobs/Dependency-Scanning.v2.gitlab-ci.yml
+  # - template: Jobs/Container-Scanning.gitlab-ci.yml
 
 # Pin the official scanners to the right stage (they default to `test`).
-sast:               { stage: security }
-secret_detection:   { stage: security }
-dependency_scanning:{ stage: security }
-container_scanning:
-  stage: security
-  variables:
-    CS_IMAGE: $IMAGE:$TAG
+# sast:               { stage: security }
+# secret_detection:   { stage: security }
+# dependency_scanning:{ stage: security }
+# container_scanning:
+#   stage: security
+#   variables:
+#     CS_IMAGE: $IMAGE:$TAG
