@@ -1,25 +1,44 @@
-# Security stage. For the first GKE deploy run these are non-blocking
-# (allow_failure: true) so the build->deploy path proves itself; they get
-# AR auth + gating hardened once the core pipeline is green.
+# Security stage. SBOM + image vuln scan, authenticated to Artifact Registry
+# via the same keyless WIF used by build/deploy.
+
+# Hidden template: WIF auth to GCP + configure docker for Artifact Registry.
+.gcp-auth:
+  image: google/cloud-sdk:slim
+  id_tokens:
+    GCP_ID_TOKEN:
+      aud: //iam.googleapis.com/projects/100137106185/locations/global/workloadIdentityPools/github-pool/providers/gitlab-provider
+  before_script:
+    - echo "$GCP_ID_TOKEN" > /tmp/gitlab_oidc_token
+    - |
+      gcloud iam workload-identity-pools create-cred-config \
+        "$GCP_WIF_PROVIDER" \
+        --service-account="$GCP_SERVICE_ACCOUNT" \
+        --output-file=/tmp/wif-cred.json \
+        --credential-source-file=/tmp/gitlab_oidc_token
+    - gcloud auth login --cred-file=/tmp/wif-cred.json
+    - gcloud config set project "$GCP_PROJECT_ID"
+    - gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
 sbom:
   stage: sbom
-  image: anchore/syft:latest
+  extends: .gcp-auth
   script:
-    - syft "$IMAGE:$TAG" -o spdx-json=sbom.spdx.json || true
+    - curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+    - syft "$IMAGE:$TAG" -o spdx-json=sbom.spdx.json
   artifacts:
     paths: [ sbom.spdx.json ]
     expire_in: 30 days
-  allow_failure: true
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
 
 trivy-image:
   stage: security
-  image: aquasec/trivy:latest
+  extends: .gcp-auth
   script:
-    - trivy image --exit-code 0 --severity HIGH,CRITICAL --format table "$IMAGE:$TAG" || true
-  allow_failure: true
+    - curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+    # report all HIGH/CRITICAL, then gate on fixable CRITICALs
+    - trivy image --exit-code 0 --severity HIGH,CRITICAL --format table "$IMAGE:$TAG"
+    - trivy image --exit-code 1 --severity CRITICAL --ignore-unfixed "$IMAGE:$TAG"
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
 
@@ -33,8 +52,11 @@ semgrep-sast:
 
 gitleaks:
   stage: security
-  image: zricethezav/gitleaks:latest
-  script: [ "gitleaks detect --source . --no-banner --redact || true" ]
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint: [""]
+  script:
+    - gitleaks detect --source . --no-banner --redact --exit-code 0
   allow_failure: true
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
