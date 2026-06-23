@@ -1,5 +1,4 @@
-# Build the image with Kaniko (rootless, no Docker daemon) and push to
-# Google Artifact Registry, authenticating via Workload Identity Federation.
+# Build with Kaniko (rootless) and push to Artifact Registry via WIF.
 build-image:
   stage: build
   image:
@@ -9,21 +8,19 @@ build-image:
     GCP_ID_TOKEN:
       aud: //iam.googleapis.com/projects/100137106185/locations/global/workloadIdentityPools/github-pool/providers/gitlab-provider
   before_script:
-    # Exchange the GitLab OIDC token for GCP creds, then get an AR access token.
-    - echo "$GCP_ID_TOKEN" > /tmp/gitlab_oidc_token
+    - echo "$GCP_ID_TOKEN" > "$CI_PROJECT_DIR/gitlab_oidc_token"
     - |
-      cat > /tmp/wif-cred.json <<JSON
+      cat > "$CI_PROJECT_DIR/wif-cred.json" <<JSON
       {
         "type": "external_account",
         "audience": "//iam.googleapis.com/${GCP_WIF_PROVIDER}",
         "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
         "token_url": "https://sts.googleapis.com/v1/token",
         "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${GCP_SERVICE_ACCOUNT}:generateAccessToken",
-        "credential_source": { "file": "/tmp/gitlab_oidc_token" }
+        "credential_source": { "file": "$CI_PROJECT_DIR/gitlab_oidc_token" }
       }
       JSON
-    - export GOOGLE_APPLICATION_CREDENTIALS=/tmp/wif-cred.json
-    # Kaniko reads GCP creds via GOOGLE_APPLICATION_CREDENTIALS for *.pkg.dev
+    - export GOOGLE_APPLICATION_CREDENTIALS="$CI_PROJECT_DIR/wif-cred.json"
   script:
     - |
       /kaniko/executor \
@@ -31,6 +28,6 @@ build-image:
         --dockerfile "$CI_PROJECT_DIR/app/Dockerfile" \
         --destination "$IMAGE:$TAG" \
         --destination "$IMAGE:latest" \
-        --digest-file=/kaniko/digest.txt
+        --digest-file="$CI_PROJECT_DIR/digest.txt"
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
